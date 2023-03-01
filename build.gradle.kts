@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "dev.usbharu"
-version = "1.0-SNAPSHOT"
+version = "1.0.0"
 
 repositories {
     google()
@@ -24,7 +24,9 @@ kotlin {
         browser()
         nodejs()
     }
-    android()
+    android{
+        publishLibraryVariants("release")
+    }
     sourceSets {
         val commonMain by getting {
             sourceSets["commonMain"].kotlin.srcDir("build/generated/source/emoji/main/kotlin")
