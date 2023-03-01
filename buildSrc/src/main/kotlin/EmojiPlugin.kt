@@ -1,15 +1,11 @@
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.cache.*
-import io.ktor.client.plugins.cache.storage.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import kotlinx.coroutines.runBlocking
 import org.gradle.api.Action
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import java.nio.file.Files
-import java.nio.file.Paths
 
 class EmojiPlugin : Plugin<Project> {
     override fun apply(project: Project) {
@@ -53,12 +49,12 @@ class EmojiPlugin : Plugin<Project> {
                             s.startsWith("#") -> {}
                             else -> {
                                 val description = s.substringAfterLast("E").substringAfter(" ")
-                                if (!description.contains("skin tone")) {
+                                val status = s.substringAfter(";").substringBefore("#").trim()
+                                if (!(description.contains("skin tone")&&status.equals("unqualified"))) {
 
                                     val code =
                                         s.substringBefore(";").replace(Regex(" +"), " ").trim()
                                     val char = s.substringAfter("# ").substringBefore(" ").trim()
-                                    val status = s.substringAfter(";").substringBefore("#").trim()
                                     enumList.put(
                                         description,
                                         Emoji(
@@ -115,7 +111,7 @@ class EmojiPlugin : Plugin<Project> {
                     }
 
                     val map = emojis.map {
-                        "enum class ${it.key}(val group:String,val subGroup:String,val code:String,val char:String,val description:String){\n" +
+                        "enum class ${it.key}(override val group:String,override val subgroup:String,override val code:String,override val char:String,override val description:String):UnicodeEmoji{\n" +
                                 "${
                                     it.value.map { it.value }.joinToString(
                                         ",\n"
@@ -127,7 +123,19 @@ class EmojiPlugin : Plugin<Project> {
                     //language=kotlin
                     val trimIndent =
                         """@Suppress("unused")
-class Emojis {
+interface UnicodeEmoji {
+    val group: String
+    val subgroup: String
+    val code: String
+    val char: String
+    val description: String
+}
+
+object Emojis {
+val allEmojis:MutableList<UnicodeEmoji> = mutableListOf<UnicodeEmoji>()
+init {
+    ${emojis.keys.map { "allEmojis.addAll($it.values())" }.joinToString("\n")}
+}
 ${joinToString}
 }"""
                     asFile.writeText(trimIndent)
