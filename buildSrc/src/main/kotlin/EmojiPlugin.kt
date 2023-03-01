@@ -50,7 +50,7 @@ class EmojiPlugin : Plugin<Project> {
                             else -> {
                                 val description = s.substringAfterLast("E").substringAfter(" ")
                                 val status = s.substringAfter(";").substringBefore("#").trim()
-                                if (!(description.contains("skin tone")&&status.equals("unqualified"))) {
+                                if (!description.contains("skin tone") && !status.contains("unqualified")) {
 
                                     val code =
                                         s.substringBefore(";").replace(Regex(" +"), " ").trim()
