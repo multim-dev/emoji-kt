@@ -31,11 +31,19 @@ class EmojiPlugin : Plugin<Project> {
                     var group: String = ""
                     var subgroup: String = ""
 
+                    var emojiCount = 0
+                    var groupCount = 0
+
                     data class Emoji(val group: String, val value: String)
 
                     val enumList = mutableMapOf<String, Emoji>()
                     //TODO グループ分けしたことで重複がなくなるはずなので修正
                     for (s in split) {
+                        if(emojiCount >= 99){
+                            emojiCount = 0
+                            groupCount++
+                        }
+
                         when {
                             s.startsWith("# group:") -> {
                                 group = s.substringAfter(": ")
@@ -62,14 +70,15 @@ class EmojiPlugin : Plugin<Project> {
                                         "minimally-qualified" -> "Status.MINIMALLY_QUALIFIED"
 
                                         else -> {
-                                            break
+                                            println(status)
+                                            continue
                                         }
                                     }
 
                                     enumList.put(
                                         description,
                                         Emoji(
-                                            group,
+                                            group+groupCount,
                                             "${
                                                 (description + "_" + status).toUpperCase()
                                                     .replace(" ", "_")
@@ -110,6 +119,8 @@ class EmojiPlugin : Plugin<Project> {
                                             }(\"$group\",\"$subgroup\",\"$code\",\"$char\",\"$description\",$statusString)"
                                         )
                                     )
+
+                                    emojiCount++
                                 }
                             }
                         }
