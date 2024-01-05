@@ -50,11 +50,22 @@ class EmojiPlugin : Plugin<Project> {
                             else -> {
                                 val description = s.substringAfterLast("E").substringAfter(" ")
                                 val status = s.substringAfter(";").substringBefore("#").trim()
-                                if (!description.contains("skin tone") && !status.contains("unqualified")) {
+                                if (true) {
 
                                     val code =
                                         s.substringBefore(";").replace(Regex(" +"), " ").trim()
                                     val char = s.substringAfter("# ").substringBefore(" ").trim()
+
+                                    val statusString = when(status){
+                                        "fully-qualified" -> "Status.FULLY_QUALIFIED"
+                                        "unqualified" -> "Status.UNAUALIFIED"
+                                        "minimally-qualified" -> "Status.MINIMALLY_QUALIFIED"
+
+                                        else -> {
+                                            break
+                                        }
+                                    }
+
                                     enumList.put(
                                         description,
                                         Emoji(
@@ -96,7 +107,7 @@ class EmojiPlugin : Plugin<Project> {
                                                     .replace("Ô", "O")
                                                     .replace("Ç", "C")
                                                     .replace(Regex("_+"), "_")
-                                            }(\"$group\",\"$subgroup\",\"$code\",\"$char\",\"$description\")"
+                                            }(\"$group\",\"$subgroup\",\"$code\",\"$char\",\"$description\",$statusString)"
                                         )
                                     )
                                 }
@@ -111,7 +122,7 @@ class EmojiPlugin : Plugin<Project> {
                     }
 
                     val map = emojis.map {
-                        "enum class ${it.key}(override val group:String,override val subgroup:String,override val code:String,override val char:String,override val description:String):UnicodeEmoji{\n" +
+                        "enum class ${it.key}(override val group:String,override val subgroup:String,override val code:String,override val char:String,override val description:String,val status:Status):UnicodeEmoji{\n" +
                                 "${
                                     it.value.map { it.value }.joinToString(
                                         ",\n"
@@ -129,6 +140,12 @@ interface UnicodeEmoji {
     val code: String
     val char: String
     val description: String
+}
+
+enum class Status{
+FULLY_QUALIFIED,
+UNAUALIFIED,
+MINIMALLY_QUALIFIED
 }
 
 object Emojis {
