@@ -81,4 +81,19 @@ publishing{
             }
         }
     }
+    repositories {
+        maven {
+            name = "Gitea"
+            url = uri("https://git.usbharu.dev/api/packages/usbharu/maven")
+
+            credentials(HttpHeaderCredentials::class.java) {
+                name = "Authorization"
+                value = "token "+(project.findProperty("gpr.gitea") as String? ?: System.getenv("GITEA"))
+            }
+
+            authentication {
+                create<HttpHeaderAuthentication>("header")
+            }
+        }
+    }
 }
