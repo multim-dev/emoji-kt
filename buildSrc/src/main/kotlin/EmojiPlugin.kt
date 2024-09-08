@@ -2,10 +2,16 @@ import io.ktor.client.*
 import io.ktor.client.engine.cio.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
 import org.gradle.api.Action
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.time.Duration
 
 class EmojiPlugin : Plugin<Project> {
     override fun apply(project: Project) {
@@ -13,10 +19,25 @@ class EmojiPlugin : Plugin<Project> {
             .doLast(Action {
                 runBlocking {
 
-                    val httpClient = HttpClient(CIO)
-                    val bodyAsText =
-                        httpClient.get("https://unicode.org/Public/emoji/15.0/emoji-test.txt")
-                            .bodyAsText()
+
+                    val httpClient = HttpClient.newBuilder()
+                        .version(HttpClient.Version.HTTP_1_1)
+                        .followRedirects(HttpClient.Redirect.NORMAL)
+                        .connectTimeout(Duration.ofSeconds(10))
+                        .build()
+
+                    val req = HttpRequest
+                        .newBuilder(URI.create("https://unicode.org/Public/emoji/15.1/emoji-test.txt"))
+                        .GET()
+                        .setHeader(
+                            "User-Agent",
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.3"
+                        )
+                        .build()
+
+
+                    val bodyAsText = httpClient.send(req, HttpResponse.BodyHandlers.ofString()).body()
+
                     println(project.buildDir.path)
 //                    println(bodyAsText)
 
@@ -39,7 +60,7 @@ class EmojiPlugin : Plugin<Project> {
                     val enumList = mutableMapOf<String, Emoji>()
                     //TODO グループ分けしたことで重複がなくなるはずなので修正
                     for (s in split) {
-                        if(emojiCount >= 99){
+                        if (emojiCount >= 99) {
                             emojiCount = 0
                             groupCount++
                         }
@@ -58,70 +79,68 @@ class EmojiPlugin : Plugin<Project> {
                             else -> {
                                 val description = s.substringAfterLast("E").substringAfter(" ")
                                 val status = s.substringAfter(";").substringBefore("#").trim()
-                                if (true) {
 
-                                    val code =
-                                        s.substringBefore(";").replace(Regex(" +"), " ").trim()
-                                    val char = s.substringAfter("# ").substringBefore(" ").trim()
+                                val code =
+                                    s.substringBefore(";").replace(Regex(" +"), " ").trim()
+                                val char = s.substringAfter("# ").substringBefore(" ").trim()
 
-                                    val statusString = when(status){
-                                        "fully-qualified" -> "Status.FULLY_QUALIFIED"
-                                        "unqualified" -> "Status.UNAUALIFIED"
-                                        "minimally-qualified" -> "Status.MINIMALLY_QUALIFIED"
+                                val statusString = when (status) {
+                                    "fully-qualified" -> "Status.FULLY_QUALIFIED"
+                                    "unqualified" -> "Status.UNAUALIFIED"
+                                    "minimally-qualified" -> "Status.MINIMALLY_QUALIFIED"
 
-                                        else -> {
-                                            println(status)
-                                            continue
-                                        }
+                                    else -> {
+                                        println(status)
+                                        continue
                                     }
-
-                                    enumList.put(
-                                        description,
-                                        Emoji(
-                                            group+groupCount,
-                                            "${
-                                                (description + "_" + status).toUpperCase()
-                                                    .replace(" ", "_")
-                                                    .replace("-", "_")
-                                                    .replace(":", "_")
-                                                    .replace(",", "_")
-                                                    .replace(".", "_")
-                                                    .replace("’", "_")
-                                                    .replace("1ST", "FIRST")
-                                                    .replace("2ND", "SECOND")
-                                                    .replace("3RD", "THIRD")
-                                                    .replace("!", "_EXCLAMATION_MARK_")
-                                                    .replace("#", "SHARP")
-                                                    .replace("*", "ASTRISC")
-                                                    .replace("0", "ZERO")
-                                                    .replace("1", "ONE")
-                                                    .replace("2", "TWO")
-                                                    .replace("3", "THREE")
-                                                    .replace("4", "FOUR")
-                                                    .replace("5", "FIVE")
-                                                    .replace("6", "SIX")
-                                                    .replace("7", "SEVEN")
-                                                    .replace("8", "EIGHT")
-                                                    .replace("9", "NINE")
-                                                    .replace("“", "_")
-                                                    .replace("”", "_")
-                                                    .replace("(", "_")
-                                                    .replace(")", "_")
-                                                    .replace("&", "_AND_")
-                                                    .replace("Ã", "A")
-                                                    .replace("É", "E")
-                                                    .replace("Í", "I")
-                                                    .replace("Ñ", "N")
-                                                    .replace("Å", "A")
-                                                    .replace("Ô", "O")
-                                                    .replace("Ç", "C")
-                                                    .replace(Regex("_+"), "_")
-                                            }(\"$group\",\"$subgroup\",\"$code\",\"$char\",\"$description\",$statusString)"
-                                        )
-                                    )
-
-                                    emojiCount++
                                 }
+
+                                enumList.putIfAbsent(
+                                    description,
+                                    Emoji(
+                                        group + groupCount,
+                                        "${
+                                            (description + "_" + status).toUpperCase()
+                                                .replace(" ", "_")
+                                                .replace("-", "_")
+                                                .replace(":", "_")
+                                                .replace(",", "_")
+                                                .replace(".", "_")
+                                                .replace("’", "_")
+                                                .replace("1ST", "FIRST")
+                                                .replace("2ND", "SECOND")
+                                                .replace("3RD", "THIRD")
+                                                .replace("!", "_EXCLAMATION_MARK_")
+                                                .replace("#", "SHARP")
+                                                .replace("*", "ASTRISC")
+                                                .replace("0", "ZERO")
+                                                .replace("1", "ONE")
+                                                .replace("2", "TWO")
+                                                .replace("3", "THREE")
+                                                .replace("4", "FOUR")
+                                                .replace("5", "FIVE")
+                                                .replace("6", "SIX")
+                                                .replace("7", "SEVEN")
+                                                .replace("8", "EIGHT")
+                                                .replace("9", "NINE")
+                                                .replace("“", "_")
+                                                .replace("”", "_")
+                                                .replace("(", "_")
+                                                .replace(")", "_")
+                                                .replace("&", "_AND_")
+                                                .replace("Ã", "A")
+                                                .replace("É", "E")
+                                                .replace("Í", "I")
+                                                .replace("Ñ", "N")
+                                                .replace("Å", "A")
+                                                .replace("Ô", "O")
+                                                .replace("Ç", "C")
+                                                .replace(Regex("_+"), "_")
+                                        }(\"$group\",\"$subgroup\",\"$code\",\"$char\",\"$description\",$statusString)"
+                                    )
+                                )
+
+                                emojiCount++
                             }
                         }
                     }
