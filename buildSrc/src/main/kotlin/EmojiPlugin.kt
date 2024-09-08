@@ -17,153 +17,150 @@ class EmojiPlugin : Plugin<Project> {
     override fun apply(project: Project) {
         project.task("generateEmoji")
             .doLast(Action {
-                runBlocking {
+                val httpClient = HttpClient.newBuilder()
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build()
+
+                val req = HttpRequest
+                    .newBuilder(URI.create("https://unicode.org/Public/emoji/15.1/emoji-test.txt"))
+                    .GET()
+                    .setHeader(
+                        "User-Agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.3"
+                    )
+                    .build()
 
 
-                    val httpClient = HttpClient.newBuilder()
-                        .version(HttpClient.Version.HTTP_1_1)
-                        .followRedirects(HttpClient.Redirect.NORMAL)
-                        .connectTimeout(Duration.ofSeconds(10))
-                        .build()
+                val bodyAsText = httpClient.send(req, HttpResponse.BodyHandlers.ofString()).body()
 
-                    val req = HttpRequest
-                        .newBuilder(URI.create("https://unicode.org/Public/emoji/15.1/emoji-test.txt"))
-                        .GET()
-                        .setHeader(
-                            "User-Agent",
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.3"
-                        )
-                        .build()
-
-
-                    val bodyAsText = httpClient.send(req, HttpResponse.BodyHandlers.ofString()).body()
-
-                    println(project.buildDir.path)
+                println(project.buildDir.path)
 //                    println(bodyAsText)
 
-                    val file =
-                        project.layout.buildDirectory.file("generated/source/emoji/main/kotlin/Emojis.kt")
-                    val asFile = file.get().asFile
-                    asFile.parentFile.mkdirs()
-                    val split = bodyAsText.replace("\r", "").split("\n");
+                val file =
+                    project.layout.buildDirectory.file("generated/source/emoji/main/kotlin/Emojis.kt")
+                val asFile = file.get().asFile
+                asFile.parentFile.mkdirs()
+                val split = bodyAsText.replace("\r", "").split("\n");
 
-                    println(split.size)
+                println(split.size)
 
-                    var group: String = ""
-                    var subgroup: String = ""
+                var group: String = ""
+                var subgroup: String = ""
 
-                    var emojiCount = 0
-                    var groupCount = 0
+                var emojiCount = 0
+                var groupCount = 0
 
-                    data class Emoji(val group: String, val value: String)
+                data class Emoji(val group: String, val value: String)
 
-                    val enumList = mutableMapOf<String, Emoji>()
-                    //TODO グループ分けしたことで重複がなくなるはずなので修正
-                    for (s in split) {
-                        if (emojiCount >= 99) {
-                            emojiCount = 0
-                            groupCount++
+                val enumList = mutableMapOf<String, Emoji>()
+                //TODO グループ分けしたことで重複がなくなるはずなので修正
+                for (s in split) {
+                    if (emojiCount >= 99) {
+                        emojiCount = 0
+                        groupCount++
+                    }
+
+                    when {
+                        s.startsWith("# group:") -> {
+                            group = s.substringAfter(": ")
                         }
 
-                        when {
-                            s.startsWith("# group:") -> {
-                                group = s.substringAfter(": ")
-                            }
+                        s.startsWith("# subgroup:") -> {
+                            subgroup = s.substringAfter(": ")
+                        }
 
-                            s.startsWith("# subgroup:") -> {
-                                subgroup = s.substringAfter(": ")
-                            }
+                        s.isNullOrBlank() -> {}
+                        s.startsWith("#") -> {}
+                        else -> {
+                            val description = s.substringAfterLast("E").substringAfter(" ")
+                            val status = s.substringAfter(";").substringBefore("#").trim()
 
-                            s.isNullOrBlank() -> {}
-                            s.startsWith("#") -> {}
-                            else -> {
-                                val description = s.substringAfterLast("E").substringAfter(" ")
-                                val status = s.substringAfter(";").substringBefore("#").trim()
+                            val code =
+                                s.substringBefore(";").replace(Regex(" +"), " ").trim()
+                            val char = s.substringAfter("# ").substringBefore(" ").trim()
 
-                                val code =
-                                    s.substringBefore(";").replace(Regex(" +"), " ").trim()
-                                val char = s.substringAfter("# ").substringBefore(" ").trim()
+                            val statusString = when (status) {
+                                "fully-qualified" -> "Status.FULLY_QUALIFIED"
+                                "unqualified" -> "Status.UNAUALIFIED"
+                                "minimally-qualified" -> "Status.MINIMALLY_QUALIFIED"
 
-                                val statusString = when (status) {
-                                    "fully-qualified" -> "Status.FULLY_QUALIFIED"
-                                    "unqualified" -> "Status.UNAUALIFIED"
-                                    "minimally-qualified" -> "Status.MINIMALLY_QUALIFIED"
-
-                                    else -> {
-                                        println(status)
-                                        continue
-                                    }
+                                else -> {
+                                    println(status)
+                                    continue
                                 }
-
-                                enumList.putIfAbsent(
-                                    description,
-                                    Emoji(
-                                        group + groupCount,
-                                        "${
-                                            (description + "_" + status).toUpperCase()
-                                                .replace(" ", "_")
-                                                .replace("-", "_")
-                                                .replace(":", "_")
-                                                .replace(",", "_")
-                                                .replace(".", "_")
-                                                .replace("’", "_")
-                                                .replace("1ST", "FIRST")
-                                                .replace("2ND", "SECOND")
-                                                .replace("3RD", "THIRD")
-                                                .replace("!", "_EXCLAMATION_MARK_")
-                                                .replace("#", "SHARP")
-                                                .replace("*", "ASTRISC")
-                                                .replace("0", "ZERO")
-                                                .replace("1", "ONE")
-                                                .replace("2", "TWO")
-                                                .replace("3", "THREE")
-                                                .replace("4", "FOUR")
-                                                .replace("5", "FIVE")
-                                                .replace("6", "SIX")
-                                                .replace("7", "SEVEN")
-                                                .replace("8", "EIGHT")
-                                                .replace("9", "NINE")
-                                                .replace("“", "_")
-                                                .replace("”", "_")
-                                                .replace("(", "_")
-                                                .replace(")", "_")
-                                                .replace("&", "_AND_")
-                                                .replace("Ã", "A")
-                                                .replace("É", "E")
-                                                .replace("Í", "I")
-                                                .replace("Ñ", "N")
-                                                .replace("Å", "A")
-                                                .replace("Ô", "O")
-                                                .replace("Ç", "C")
-                                                .replace(Regex("_+"), "_")
-                                        }(\"$group\",\"$subgroup\",\"$code\",\"$char\",\"$description\",$statusString)"
-                                    )
-                                )
-
-                                emojiCount++
                             }
+
+                            enumList.putIfAbsent(
+                                (description + "_" + status),
+                                Emoji(
+                                    group + groupCount,
+                                    "${
+                                        (description + "_" + status).toUpperCase()
+                                            .replace(" ", "_")
+                                            .replace("-", "_")
+                                            .replace(":", "_")
+                                            .replace(",", "_")
+                                            .replace(".", "_")
+                                            .replace("’", "_")
+                                            .replace("1ST", "FIRST")
+                                            .replace("2ND", "SECOND")
+                                            .replace("3RD", "THIRD")
+                                            .replace("!", "_EXCLAMATION_MARK_")
+                                            .replace("#", "SHARP")
+                                            .replace("*", "ASTRISC")
+                                            .replace("0", "ZERO")
+                                            .replace("1", "ONE")
+                                            .replace("2", "TWO")
+                                            .replace("3", "THREE")
+                                            .replace("4", "FOUR")
+                                            .replace("5", "FIVE")
+                                            .replace("6", "SIX")
+                                            .replace("7", "SEVEN")
+                                            .replace("8", "EIGHT")
+                                            .replace("9", "NINE")
+                                            .replace("“", "_")
+                                            .replace("”", "_")
+                                            .replace("(", "_")
+                                            .replace(")", "_")
+                                            .replace("&", "_AND_")
+                                            .replace("Ã", "A")
+                                            .replace("É", "E")
+                                            .replace("Í", "I")
+                                            .replace("Ñ", "N")
+                                            .replace("Å", "A")
+                                            .replace("Ô", "O")
+                                            .replace("Ç", "C")
+                                            .replace(Regex("_+"), "_")
+                                    }(\"$group\",\"$subgroup\",\"$code\",\"$char\",\"$description\",$statusString)"
+                                )
+                            )
+
+                            emojiCount++
                         }
                     }
-                    val emojis = mutableMapOf<String, MutableList<Emoji>>()
-                    enumList.values.forEach {
-                        emojis.getOrPut(
-                            it.group.replace(" ", "").replace("&", "And")
-                        ) { mutableListOf() }.add(it)
-                    }
+                }
+                val emojis = mutableMapOf<String, MutableList<Emoji>>()
+                enumList.values.forEach {
+                    emojis.getOrPut(
+                        it.group.replace(" ", "").replace("&", "And")
+                    ) { mutableListOf() }.add(it)
+                }
 
-                    val map = emojis.map {
-                        "enum class ${it.key}(override val group:String,override val subgroup:String,override val code:String,override val char:String,override val description:String,val status:Status):UnicodeEmoji{\n" +
-                                "${
-                                    it.value.map { it.value }.joinToString(
-                                        ",\n"
-                                    )
-                                }}"
-                    }
+                val map = emojis.map {
+                    "enum class ${it.key}(override val group:String,override val subgroup:String,override val code:String,override val char:String,override val description:String,val status:Status):UnicodeEmoji{\n" +
+                            "${
+                                it.value.map { it.value }.joinToString(
+                                    ",\n"
+                                )
+                            }}"
+                }
 
-                    val joinToString = map.joinToString("\n")
-                    //language=kotlin
-                    val trimIndent =
-                        """@Suppress("unused")
+                val joinToString = map.joinToString("\n")
+                //language=kotlin
+                val trimIndent =
+                    """@Suppress("unused")
 interface UnicodeEmoji {
     val group: String
     val subgroup: String
@@ -185,9 +182,9 @@ init {
 }
 ${joinToString}
 }"""
-                    asFile.writeText(trimIndent)
+                asFile.writeText(trimIndent)
 
-                }
+
             })
     }
 }
